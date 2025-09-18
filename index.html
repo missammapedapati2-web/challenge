@@ -1,0 +1,84 @@
+<!doctype html>
+// Add report from form
+document.getElementById('issueForm').addEventListener('submit', e=>{
+e.preventDefault();
+const issue = document.getElementById('i_issue').value;
+const crop = document.getElementById('i_crop').value.trim();
+const region = document.getElementById('i_region').value.trim();
+const date = document.getElementById('i_date').value;
+const severity = document.getElementById('i_sev').value;
+if(!crop || !region || !date) return alert('Please fill required fields');
+const newReport = {issue,crop,region,date,severity,details:''};
+reports.unshift(newReport);
+
+
+renderTable(globalSearch.value, filterSeverity.value);
+updateCharts();
+hideModal();
+e.target.reset();
+// small toast/alert
+alert('Report added successfully');
+});
+
+
+// Modal open/close handlers
+openAdd.addEventListener('click', showModal);
+closeModal.addEventListener('click', hideModal);
+// close modal on backdrop click
+modalBackdrop.addEventListener('click', function(e){ if(e.target===modalBackdrop) hideModal(); });
+// close modal on Esc
+window.addEventListener('keydown', e=>{ if(e.key==='Escape') hideModal(); });
+
+
+// Search & filter
+globalSearch.addEventListener('input', ()=> renderTable(globalSearch.value, filterSeverity.value));
+filterSeverity.addEventListener('change', ()=> renderTable(globalSearch.value, filterSeverity.value));
+document.getElementById('clearFilter').addEventListener('click', ()=>{ filterSeverity.value=''; renderTable('',''); });
+
+
+// Export CSV
+document.getElementById('exportCsv').addEventListener('click', ()=>{
+if(reports.length===0) return alert('No reports to export');
+const headers = ['Issue','Crop','Region','Date','Severity'];
+const rows = reports.map(r=>[r.issue,r.crop,r.region,r.date,r.severity].map(v=>`"${String(v).replaceAll('"','""')}"`).join(','));
+const csv = [headers.join(','),...rows].join('\n');
+const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
+const url = URL.createObjectURL(blob);
+const a = document.createElement('a'); a.href=url; a.download = 'agri_reports.csv'; a.click(); URL.revokeObjectURL(url);
+alert('CSV exported');
+});
+
+
+// Sample data
+document.getElementById('importSample').addEventListener('click', ()=>{
+reports = [
+{issue:'Pest',crop:'Wheat',region:'Punjab',date:'2025-09-01',severity:'High',details:'Locusts observed'},
+{issue:'Drought',crop:'Maize',region:'Maharashtra',date:'2025-08-20',severity:'High',details:''},
+{issue:'Fertility',crop:'Rice',region:'West Bengal',date:'2025-07-15',severity:'Medium',details:'Nutrient depletion'},
+{issue:'Disease',crop:'Tomato',region:'Karnataka',date:'2025-09-05',severity:'Medium',details:'Blight symptoms'},
+{issue:'Flood',crop:'Sugarcane',region:'Assam',date:'2025-06-10',severity:'High',details:''},
+{issue:'Pest',crop:'Cotton',region:'Gujarat',date:'2025-08-28',severity:'Low',details:'Minor aphid activity'},
+];
+renderTable(globalSearch.value, filterSeverity.value);
+updateCharts();
+});
+
+
+// Clear data
+document.getElementById('clearData').addEventListener('click', ()=>{
+if(!confirm('Clear all reports? This cannot be undone.')) return;
+reports = [];
+renderTable();
+updateCharts();
+});
+
+
+// initialize with sample data
+(function init(){
+document.getElementById('importSample').click();
+})();
+
+
+</script>
+</body>
+</html>

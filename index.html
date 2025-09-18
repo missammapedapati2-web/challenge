@@ -1,84 +1,196 @@
-<!doctype html>
-// Add report from form
-document.getElementById('issueForm').addEventListener('submit', e=>{
-e.preventDefault();
-const issue = document.getElementById('i_issue').value;
-const crop = document.getElementById('i_crop').value.trim();
-const region = document.getElementById('i_region').value.trim();
-const date = document.getElementById('i_date').value;
-const severity = document.getElementById('i_sev').value;
-if(!crop || !region || !date) return alert('Please fill required fields');
-const newReport = {issue,crop,region,date,severity,details:''};
-reports.unshift(newReport);
+<!DOCTYPE html>
+<html lang="en">
 
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Issues Dashboard</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f7f7f7;
+            margin: 0;
+            padding: 0;
+        }
 
-renderTable(globalSearch.value, filterSeverity.value);
-updateCharts();
-hideModal();
-e.target.reset();
-// small toast/alert
-alert('Report added successfully');
-});
+        header {
+            background-color: #004d99;
+            color: white;
+            padding: 15px 0;
+            text-align: center;
+            font-size: 24px;
+        }
 
+        .container {
+            display: flex;
+            justify-content: space-between;
+            padding: 20px;
+        }
 
-// Modal open/close handlers
-openAdd.addEventListener('click', showModal);
-closeModal.addEventListener('click', hideModal);
-// close modal on backdrop click
-modalBackdrop.addEventListener('click', function(e){ if(e.target===modalBackdrop) hideModal(); });
-// close modal on Esc
-window.addEventListener('keydown', e=>{ if(e.key==='Escape') hideModal(); });
+        .card {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            width: 48%;
+        }
 
+        .card h3 {
+            margin-top: 0;
+            font-size: 22px;
+        }
 
-// Search & filter
-globalSearch.addEventListener('input', ()=> renderTable(globalSearch.value, filterSeverity.value));
-filterSeverity.addEventListener('change', ()=> renderTable(globalSearch.value, filterSeverity.value));
-document.getElementById('clearFilter').addEventListener('click', ()=>{ filterSeverity.value=''; renderTable('',''); });
+        .card table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
 
+        .card table th, .card table td {
+            padding: 10px;
+            border: 1px solid #ddd;
+            text-align: left;
+        }
 
-// Export CSV
-document.getElementById('exportCsv').addEventListener('click', ()=>{
-if(reports.length===0) return alert('No reports to export');
-const headers = ['Issue','Crop','Region','Date','Severity'];
-const rows = reports.map(r=>[r.issue,r.crop,r.region,r.date,r.severity].map(v=>`"${String(v).replaceAll('"','""')}"`).join(','));
-const csv = [headers.join(','),...rows].join('\n');
-const blob = new Blob([csv],{type:'text/csv;charset=utf-8;'});
-const url = URL.createObjectURL(blob);
-const a = document.createElement('a'); a.href=url; a.download = 'agri_reports.csv'; a.click(); URL.revokeObjectURL(url);
-alert('CSV exported');
-});
+        .card table th {
+            background-color: #f2f2f2;
+        }
 
+        .card canvas {
+            width: 100%;
+            height: 300px;
+        }
 
-// Sample data
-document.getElementById('importSample').addEventListener('click', ()=>{
-reports = [
-{issue:'Pest',crop:'Wheat',region:'Punjab',date:'2025-09-01',severity:'High',details:'Locusts observed'},
-{issue:'Drought',crop:'Maize',region:'Maharashtra',date:'2025-08-20',severity:'High',details:''},
-{issue:'Fertility',crop:'Rice',region:'West Bengal',date:'2025-07-15',severity:'Medium',details:'Nutrient depletion'},
-{issue:'Disease',crop:'Tomato',region:'Karnataka',date:'2025-09-05',severity:'Medium',details:'Blight symptoms'},
-{issue:'Flood',crop:'Sugarcane',region:'Assam',date:'2025-06-10',severity:'High',details:''},
-{issue:'Pest',crop:'Cotton',region:'Gujarat',date:'2025-08-28',severity:'Low',details:'Minor aphid activity'},
-];
-renderTable(globalSearch.value, filterSeverity.value);
-updateCharts();
-});
+        footer {
+            text-align: center;
+            padding: 20px;
+            background-color: #004d99;
+            color: white;
+        }
 
+    </style>
+</head>
 
-// Clear data
-document.getElementById('clearData').addEventListener('click', ()=>{
-if(!confirm('Clear all reports? This cannot be undone.')) return;
-reports = [];
-renderTable();
-updateCharts();
-});
+<body>
 
+    <header>
+        Hospital Issues Dashboard
+    </header>
 
-// initialize with sample data
-(function init(){
-document.getElementById('importSample').click();
-})();
+    <div class="container">
+        <div class="card">
+            <h3>Hospital Issues Overview</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Issue ID</th>
+                        <th>Department</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="issues-table-body">
+                    <!-- Table rows will be populated here by JavaScript -->
+                </tbody>
+            </table>
+        </div>
 
+        <div class="card">
+            <h3>Issue Statistics</h3>
+            <canvas id="barChart"></canvas>
+        </div>
+    </div>
 
-</script>
+    <div class="container">
+        <div class="card">
+            <h3>Resolved vs Unresolved Issues</h3>
+            <canvas id="pieChart"></canvas>
+        </div>
+    </div>
+
+    <footer>
+        &copy; 2025 Hospital Management System
+    </footer>
+
+    <!-- Include Chart.js library -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        // Sample hospital issues data
+        const issues = [
+            { id: 'I001', department: 'Cardiology', status: 'Resolved' },
+            { id: 'I002', department: 'Neurology', status: 'Unresolved' },
+            { id: 'I003', department: 'Orthopedics', status: 'Resolved' },
+            { id: 'I004', department: 'Pediatrics', status: 'Unresolved' },
+            { id: 'I005', department: 'Cardiology', status: 'Resolved' },
+            { id: 'I006', department: 'Neurology', status: 'Resolved' },
+            { id: 'I007', department: 'Orthopedics', status: 'Unresolved' },
+            { id: 'I008', department: 'Pediatrics', status: 'Resolved' }
+        ];
+
+        // Populate the issues table dynamically
+        const tableBody = document.getElementById('issues-table-body');
+        issues.forEach(issue => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${issue.id}</td>
+                <td>${issue.department}</td>
+                <td>${issue.status}</td>
+            `;
+            tableBody.appendChild(row);
+        });
+
+        // Prepare data for the bar chart (Issues per department)
+        const departments = ['Cardiology', 'Neurology', 'Orthopedics', 'Pediatrics'];
+        const departmentIssues = departments.map(department => {
+            return issues.filter(issue => issue.department === department).length;
+        });
+
+        // Prepare data for the pie chart (Resolved vs Unresolved issues)
+        const resolvedIssues = issues.filter(issue => issue.status === 'Resolved').length;
+        const unresolvedIssues = issues.filter(issue => issue.status === 'Unresolved').length;
+
+        // Bar Chart Configuration
+        const barChart = new Chart(document.getElementById('barChart'), {
+            type: 'bar',
+            data: {
+                labels: departments,
+                datasets: [{
+                    label: 'Number of Issues',
+                    data: departmentIssues,
+                    backgroundColor: '#4caf50',
+                    borderColor: '#388e3c',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // Pie Chart Configuration
+        const pieChart = new Chart(document.getElementById('pieChart'), {
+            type: 'pie',
+            data: {
+                labels: ['Resolved', 'Unresolved'],
+                datasets: [{
+                    label: 'Issue Status',
+                    data: [resolvedIssues, unresolvedIssues],
+                    backgroundColor: ['#4caf50', '#f44336']
+                }]
+            },
+            options: {
+                responsive: true
+            }
+        });
+    </script>
+
 </body>
+
 </html>
+
+
